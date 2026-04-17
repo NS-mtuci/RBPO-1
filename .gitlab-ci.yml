@@ -1,0 +1,17 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+    - when: never
+
+stages:
+  - build
+
+build-job:
+  stage: build
+  script:
+    - mvnw.cmd clean package
+  artifacts:
+    name: app-jar
+    paths:
+      - ./target/*.jar
