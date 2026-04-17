@@ -1,0 +1,41 @@
+name: Build Maven Project
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: maven:3.9.9-eclipse-temurin-21
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Give execute permission to mvnw
+        run: |
+          if [ -f ./mvnw ]; then
+            chmod +x ./mvnw
+          fi
+
+      - name: Build, test and package
+        run: |
+          if [ -f ./mvnw ]; then
+            ./mvnw clean package
+          else
+            mvn clean package
+          fi
+
+      - name: Upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: ./target/*.jar
