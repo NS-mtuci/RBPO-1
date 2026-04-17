@@ -1,6 +1,7 @@
 workflow:
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
     - when: never
 
 stages:
@@ -8,12 +9,7 @@ stages:
 
 build-job:
   stage: build
-
-  tags:
-    - saas-linux-small-amd64
-
   image: maven:3.9.9-eclipse-temurin-21
-
   script:
     - |
       if [ -f ./mvnw ]; then
@@ -22,7 +18,7 @@ build-job:
       else
         mvn clean package
       fi
-
   artifacts:
+    name: app-jar
     paths:
       - ./target/*.jar
