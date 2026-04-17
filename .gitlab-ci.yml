@@ -16,4 +16,4 @@ build-job:
   artifacts:
     name: app-jar
     paths:
-      - ./target/*.jar
+      - ./target/*.jar 
