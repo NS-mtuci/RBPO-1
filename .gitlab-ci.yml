@@ -16,6 +16,6 @@ build-job:
     - mvn -version
     - ./mvnw clean package || mvn clean package
   artifacts:
-    name: app-jar
+    name: app-jar 
     paths:
       - ./target/*.jar
