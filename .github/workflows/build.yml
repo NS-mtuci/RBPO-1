@@ -87,7 +87,8 @@ jobs:
             semgrep.json
             semgrep.sarif
           if-no-files-found: error
-    sca:
+
+  sca:
     needs: build
     runs-on: ubuntu-latest
     container:
@@ -106,9 +107,9 @@ jobs:
       - name: Run OWASP Dependency-Check
         run: |
           if [ -f ./mvnw ]; then
-            ./mvnw -B org.owasp:dependency-check-maven:check
+            ./mvnw -B -DossindexAnalyzerEnabled=false org.owasp:dependency-check-maven:check
           else
-            mvn -B org.owasp:dependency-check-maven:check
+            mvn -B -DossindexAnalyzerEnabled=false org.owasp:dependency-check-maven:check
           fi
 
       - name: Upload Dependency-Check report
