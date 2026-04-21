@@ -87,3 +87,35 @@ jobs:
             semgrep.json
             semgrep.sarif
           if-no-files-found: error
+
+  sca:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: maven:3.9.9-eclipse-temurin-21
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Give execute permission to mvnw
+        run: |
+          if [ -f ./mvnw ]; then
+            chmod +x ./mvnw
+          fi
+
+      - name: Run OWASP Dependency-Check
+        run: |
+          if [ -f ./mvnw ]; then
+            ./mvnw -B -DossindexAnalyzerEnabled=false org.owasp:dependency-check-maven:check
+          else
+            mvn -B -DossindexAnalyzerEnabled=false org.owasp:dependency-check-maven:check
+          fi
+
+      - name: Upload Dependency-Check report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: dependency-check-report
+          path: target/dependency-check/dependency-check-report.html
+          if-no-files-found: error
