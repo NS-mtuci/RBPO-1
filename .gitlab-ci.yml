@@ -15,15 +15,18 @@ build-job:
     pull_policy: if-not-present
   script:
     - mvn -version
+    - chmod +x mvnw || true
     - ./mvnw clean package || mvn clean package
   artifacts:
-    name: app-jar 
+    name: app-jar
     paths:
       - ./target/*.jar
 
 sast_semgrep:
   stage: test
-  image: semgrep/semgrep:latest
+  image:
+    name: semgrep/semgrep:latest
+    pull_policy: if-not-present
   script:
     - semgrep scan --config auto --text --text-output=semgrep.txt --json-output=semgrep.json --sarif-output=semgrep.sarif .
   artifacts:
@@ -36,3 +39,18 @@ sast_semgrep:
       sast:
         paths:
           - semgrep.sarif
+
+sca_dependency_check:
+  stage: test
+  image:
+    name: maven:3.9.9-eclipse-temurin-21
+    pull_policy: if-not-present
+  script:
+    - mvn -version
+    - chmod +x mvnw || true
+    - ./mvnw -B -DossindexAnalyzerEnabled=false org.owasp:dependency-check-maven:check || mvn -B -DossindexAnalyzerEnabled=false org.owasp:dependency-check-maven:check
+  artifacts:
+    when: always
+    name: dependency-check-report
+    paths:
+      - ./target/dependency-check/dependency-check-report.html
