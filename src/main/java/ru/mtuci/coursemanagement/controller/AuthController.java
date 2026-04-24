@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,7 +19,10 @@ import java.util.Optional;
 @Controller
 @RequiredArgsConstructor
 public class AuthController {
+
     private final UserService users;
+
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     @GetMapping("/login")
     public String loginPage() {
@@ -30,33 +34,48 @@ public class AuthController {
                           @RequestParam String password,
                           HttpServletRequest req,
                           Model model) {
+
         Optional<User> opt = users.findByUsername(username);
+
         if (opt.isPresent()) {
             User u = opt.get();
-            if (u.getPassword().equals(password)) {
-                log.info("User {} logged in with password {}", username, password);
-                HttpSession s = req.getSession(true);
-                s.setAttribute("username", username);
-                s.setAttribute("role", u.getRole());
+
+            if (PASSWORD_ENCODER.matches(password, u.getPassword())) {
+                log.info("User {} logged in", username);
+
+                HttpSession session = req.getSession(true);
+                session.setAttribute("username", username);
+                session.setAttribute("role", u.getRole());
+
                 return "redirect:/";
             }
         }
+
         model.addAttribute("error", "Неверные учетные данные");
         return "login";
     }
 
     @GetMapping("/logout")
     public String logout(HttpServletRequest req) {
-        HttpSession s = req.getSession(false);
-        if (s != null) s.invalidate();
+        HttpSession session = req.getSession(false);
+
+        if (session != null) {
+            session.invalidate();
+        }
+
         return "redirect:/login";
     }
 
     @PostMapping("/register")
     public String register(@RequestParam String username,
                            @RequestParam String password,
-                           @RequestParam(required = false, defaultValue = "STUDENT") String role) {
-        users.save(new User(null, username, password, role));
+                           @RequestParam(required = false) String role) {
+
+        String encodedPassword = PASSWORD_ENCODER.encode(password);
+
+        // Роль не берём из формы, чтобы пользователь не мог сам сделать себя TEACHER.
+        users.save(new User(null, username, encodedPassword, "STUDENT"));
+
         return "redirect:/login";
     }
 }
