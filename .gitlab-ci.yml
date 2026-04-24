@@ -1,4 +1,3 @@
-cat > .gitlab-ci.yml <<'EOF'
 workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -147,4 +146,3 @@ dast_zap_api_scan:
     paths:
       - zap-reports/api/
       - app-api.log
-EOF
