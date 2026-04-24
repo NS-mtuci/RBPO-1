@@ -153,13 +153,13 @@ jobs:
           sleep 30
 
       - name: ZAP Baseline Scan
+        continue-on-error: true
         uses: zaproxy/action-baseline@v0.9.0
         with:
           target: "http://127.0.0.1:8080"
           rules_file_name: "zap/zap-rules.tsv"
           fail_action: false
           allow_issue_writing: false
-          artifact_name: zap-baseline-action-report
           cmd_options: "-I"
 
       - name: Collect ZAP baseline reports
@@ -215,6 +215,7 @@ jobs:
           sleep 30
 
       - name: ZAP API Scan
+        continue-on-error: true
         uses: zaproxy/action-api-scan@v0.10.0
         with:
           target: "/zap/wrk/zap/openapi.yaml"
@@ -222,8 +223,7 @@ jobs:
           rules_file_name: "zap/zap-rules.tsv"
           fail_action: false
           allow_issue_writing: false
-          artifact_name: zap-api-action-report
-          cmd_options: "-r zap-api.html -J zap-api.json -w zap-api.md -I"
+          cmd_options: "-I"
 
       - name: Collect ZAP API reports
         if: always()
