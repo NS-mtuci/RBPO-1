@@ -11,9 +11,6 @@ stages:
 build-job:
   stage: build
 
-  tags:
-    - saas-linux-small-amd64
-
   image: maven:3.9.9-eclipse-temurin-21
 
   script:
@@ -32,9 +29,6 @@ build-job:
 
 sast_semgrep:
   stage: test
-
-  tags:
-    - saas-linux-small-amd64
 
   image: semgrep/semgrep:latest
 
@@ -55,9 +49,6 @@ sast_semgrep:
 sca_dependency_check:
   stage: test
 
-  tags:
-    - saas-linux-small-amd64
-
   image: maven:3.9.9-eclipse-temurin-21
 
   dependencies:
@@ -76,9 +67,6 @@ sca_dependency_check:
 
 dast_zap_baseline:
   stage: test
-
-  tags:
-    - saas-linux-small-amd64
 
   image:
     name: zaproxy/zap-stable
@@ -112,9 +100,6 @@ dast_zap_baseline:
 
 dast_zap_api_scan:
   stage: test
-
-  tags:
-    - saas-linux-small-amd64
 
   image:
     name: zaproxy/zap-stable
