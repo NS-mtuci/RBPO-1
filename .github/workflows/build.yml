@@ -160,7 +160,7 @@ jobs:
           fail_action: false
           allow_issue_writing: false
           artifact_name: zap-baseline-action-report
-          cmd_options: "-r zap-baseline.html -J zap-baseline.json -w zap-baseline.md -I"
+          cmd_options: "-I"
 
       - name: Collect ZAP baseline reports
         if: always()
