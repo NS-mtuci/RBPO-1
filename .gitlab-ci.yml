@@ -1,6 +1,6 @@
 workflow:
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: always
     - when: never
 
@@ -10,13 +10,21 @@ stages:
 
 build-job:
   stage: build
-  image:
-    name: maven:3.9.9-eclipse-temurin-21
-    pull_policy: if-not-present
+
+  tags:
+    - saas-linux-small-amd64
+
+  image: maven:3.9.9-eclipse-temurin-21
+
   script:
-    - mvn -version
-    - chmod +x mvnw || true
-    - ./mvnw clean package || mvn clean package
+    - |
+      if [ -f ./mvnw ]; then
+        chmod +x ./mvnw
+        ./mvnw clean package
+      else
+        mvn clean package
+      fi
+
   artifacts:
     name: app-jar
     paths:
@@ -24,11 +32,15 @@ build-job:
 
 sast_semgrep:
   stage: test
-  image:
-    name: semgrep/semgrep:latest
-    pull_policy: if-not-present
+
+  tags:
+    - saas-linux-small-amd64
+
+  image: semgrep/semgrep:latest
+
   script:
     - semgrep scan --config auto --text --text-output=semgrep.txt --json-output=semgrep.json --sarif-output=semgrep.sarif .
+
   artifacts:
     when: always
     paths:
@@ -42,15 +54,95 @@ sast_semgrep:
 
 sca_dependency_check:
   stage: test
-  image:
-    name: maven:3.9.9-eclipse-temurin-21
-    pull_policy: if-not-present
+
+  tags:
+    - saas-linux-small-amd64
+
+  image: maven:3.9.9-eclipse-temurin-21
+
+  dependencies:
+    - build-job
+
   script:
     - mvn -version
     - chmod +x mvnw || true
     - ./mvnw -B -DossindexAnalyzerEnabled=false org.owasp:dependency-check-maven:check || mvn -B -DossindexAnalyzerEnabled=false org.owasp:dependency-check-maven:check
+
   artifacts:
     when: always
     name: dependency-check-report
     paths:
       - ./target/dependency-check/dependency-check-report.html
+
+dast_zap_baseline:
+  stage: test
+
+  tags:
+    - saas-linux-small-amd64
+
+  image:
+    name: zaproxy/zap-stable
+    entrypoint: [""]
+
+  dependencies:
+    - build-job
+
+  script:
+    - |
+      mkdir -p zap-reports/baseline
+      APP_JAR=$(ls ./target/*.jar | grep -v original | head -n 1)
+      test -n "$APP_JAR"
+      echo "Starting application from $APP_JAR"
+      java -jar "$APP_JAR" > app-baseline.log 2>&1 &
+      sleep 30
+      zap-baseline.py \
+        -t http://127.0.0.1:8080 \
+        -c zap/zap-rules.tsv \
+        -r zap-reports/baseline/zap-baseline.html \
+        -J zap-reports/baseline/zap-baseline.json \
+        -w zap-reports/baseline/zap-baseline.md \
+        -I || true
+
+  artifacts:
+    when: always
+    name: zap-baseline-report
+    paths:
+      - zap-reports/baseline/
+      - app-baseline.log
+
+dast_zap_api_scan:
+  stage: test
+
+  tags:
+    - saas-linux-small-amd64
+
+  image:
+    name: zaproxy/zap-stable
+    entrypoint: [""]
+
+  dependencies:
+    - build-job
+
+  script:
+    - |
+      mkdir -p zap-reports/api
+      APP_JAR=$(ls ./target/*.jar | grep -v original | head -n 1)
+      test -n "$APP_JAR"
+      echo "Starting application from $APP_JAR"
+      java -jar "$APP_JAR" > app-api.log 2>&1 &
+      sleep 30
+      zap-api-scan.py \
+        -t zap/openapi.yaml \
+        -f openapi \
+        -c zap/zap-rules.tsv \
+        -r zap-reports/api/zap-api.html \
+        -J zap-reports/api/zap-api.json \
+        -w zap-reports/api/zap-api.md \
+        -I || true
+
+  artifacts:
+    when: always
+    name: zap-api-report
+    paths:
+      - zap-reports/api/
+      - app-api.log
