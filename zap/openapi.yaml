@@ -1,0 +1,190 @@
+openapi: 3.0.3
+
+info:
+  title: Course Management API
+  version: 1.0.0
+  description: OpenAPI description for OWASP ZAP API scan in lab 5.
+
+servers:
+  - url: http://127.0.0.1:8080
+
+paths:
+  /api/courses:
+    get:
+      summary: Get all courses
+      responses:
+        "200":
+          description: List of courses
+    post:
+      summary: Create course
+      requestBody:
+        required: false
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  example: Security Basics
+                description:
+                  type: string
+                  example: Course description
+                teacherId:
+                  type: integer
+                  example: 1
+      responses:
+        "302":
+          description: Redirect after creation
+
+  /api/courses/{id}:
+    get:
+      summary: Get course by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: Course found
+        "404":
+          description: Course not found
+
+    put:
+      summary: Update course by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  example: Updated title
+                description:
+                  type: string
+                  example: Updated description
+                teacherId:
+                  type: integer
+                  example: 1
+      responses:
+        "200":
+          description: Course updated
+        "404":
+          description: Course not found
+
+  /api/courses/search:
+    get:
+      summary: Search courses by title
+      parameters:
+        - name: title
+          in: query
+          required: true
+          schema:
+            type: string
+          example: Java
+      responses:
+        "200":
+          description: Search result
+
+  /api/courses/import:
+    get:
+      summary: Import course data from URL
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+          example: http://127.0.0.1:8080/api/courses
+      responses:
+        "200":
+          description: Import result
+
+  /api/proxy:
+    get:
+      summary: Proxy request to target URL
+      parameters:
+        - name: targetUrl
+          in: query
+          required: true
+          schema:
+            type: string
+          example: http://127.0.0.1:8080/api/courses
+      responses:
+        "200":
+          description: Proxy response
+
+  /api/xml/parse:
+    post:
+      summary: Parse XML body
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: string
+              example: "<root>test</root>"
+          text/xml:
+            schema:
+              type: string
+              example: "<root>test</root>"
+      responses:
+        "200":
+          description: XML parse result
+
+  /login:
+    post:
+      summary: Login form
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: student
+                password:
+                  type: string
+                  example: password
+      responses:
+        "302":
+          description: Redirect after login
+        "200":
+          description: Login page with error
+
+  /register:
+    post:
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: zapuser
+                password:
+                  type: string
+                  example: password
+                role:
+                  type: string
+                  example: STUDENT
+      responses:
+        "302":
+          description: Redirect after registration
