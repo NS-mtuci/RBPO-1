@@ -49,9 +49,6 @@ sast_semgrep:
 sca_dependency_check:
   stage: test
 
-  tags:
-    - saas-linux-small-amd64
-
   image: maven:3.9.9-eclipse-temurin-21
 
   dependencies:
