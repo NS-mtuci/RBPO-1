@@ -25,8 +25,8 @@ build-job:
   stage: build
 
   needs:
-    - secret_scan
-    
+    - secret-scan
+
   image: maven:3.9.9-eclipse-temurin-21
 
   script:
