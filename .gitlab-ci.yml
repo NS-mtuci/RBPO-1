@@ -147,3 +147,62 @@ dast_zap_api_scan:
     paths:
       - zap-reports/api/
       - app-api.log
+
+web_fuzzing:
+  stage: test
+
+  image: golang:1.23
+
+  dependencies:
+    - build-job
+
+  before_script:
+    - apt-get update
+    - apt-get install -y openjdk-21-jre
+    - go install github.com/ffuf/ffuf/v2@latest
+    - export PATH="$PATH:/go/bin"
+
+  script:
+    - |
+      mkdir -p fuzzing fuzzing-reports
+
+      cat > fuzzing/wordlist.txt <<'EOF'
+      api
+      login
+      logout
+      register
+      users
+      user
+      admin
+      actuator
+      health
+      error
+      swagger-ui
+      v3
+      docs
+      config
+      test
+      debug
+      EOF
+
+      APP_JAR=$(ls ./target/*.jar | grep -v original | head -n 1)
+      test -n "$APP_JAR"
+
+      echo "Starting application from $APP_JAR"
+      java -jar "$APP_JAR" > app-fuzzing.log 2>&1 &
+      sleep 30
+
+      ffuf \
+        -u http://127.0.0.1:8080/FUZZ \
+        -w fuzzing/wordlist.txt \
+        -of json \
+        -o fuzzing-reports/ffuf-report.json \
+        -mc all \
+        -fc 404
+
+  artifacts:
+    when: always
+    name: ffuf-fuzzing-report
+    paths:
+      - fuzzing-reports/
+      - app-fuzzing.log
