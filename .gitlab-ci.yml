@@ -5,11 +5,27 @@ workflow:
     - when: never
 
 stages:
+  - security
   - build
   - test
 
+secret-scan:
+  stage: security
+
+  image:
+    name: ghcr.io/gitleaks/gitleaks:latest
+    entrypoint: [""]
+
+  script:
+    - gitleaks dir --verbose --redact --exit-code 1 .
+
+  allow_failure: false
+
 build-job:
   stage: build
+
+  needs:
+    - secret-scan
 
   image: maven:3.9.9-eclipse-temurin-21
 

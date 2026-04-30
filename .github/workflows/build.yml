@@ -15,7 +15,22 @@ permissions:
   security-events: write
 
 jobs:
+  secret_scan:
+    name: Secret scan with Gitleaks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Run Gitleaks secret scan
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:latest \
+            dir --verbose --redact --exit-code 1 /repo
   build:
+    needs: secret_scan
     runs-on: ubuntu-latest
     container:
       image: maven:3.9.9-eclipse-temurin-21
