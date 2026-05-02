@@ -1,6 +1,9 @@
 name: Build Maven Project
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -13,6 +16,7 @@ permissions:
   contents: read
   actions: read
   security-events: write
+  packages: write
 
 jobs:
   secret_scan:
@@ -334,3 +338,92 @@ jobs:
             fuzzing-reports/
             app-fuzzing.log
           if-no-files-found: warn
+
+  container_security_scan:
+    name: Build, scan and publish Docker image
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download jar artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: app-jar
+          path: target
+
+      - name: Prepare image tags
+        run: |
+          REPOSITORY_LC="${GITHUB_REPOSITORY,,}"
+          echo "IMAGE_REF=ghcr.io/${REPOSITORY_LC}:${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "IMAGE_LATEST=ghcr.io/${REPOSITORY_LC}:latest" >> "$GITHUB_ENV"
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+          trivy --version
+
+      - name: Build Docker image locally
+        run: |
+          ls -la target
+          docker build -t "$IMAGE_REF" .
+          docker save "$IMAGE_REF" -o app-image.tar
+
+      - name: Run Trivy security scan before publishing
+        run: |
+          mkdir -p trivy-reports
+
+          set +e
+
+          trivy config Dockerfile \
+            --exit-code 1 \
+            --severity HIGH,CRITICAL \
+            --format table \
+            --output trivy-reports/trivy-dockerfile.txt
+          CONFIG_STATUS=$?
+
+          trivy image \
+            --input app-image.tar \
+            --exit-code 1 \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format table \
+            --output trivy-reports/trivy-image.txt
+          IMAGE_STATUS=$?
+
+          set -e
+
+          cat trivy-reports/trivy-dockerfile.txt || true
+          cat trivy-reports/trivy-image.txt || true
+
+          if [ "$CONFIG_STATUS" -ne 0 ] || [ "$IMAGE_STATUS" -ne 0 ]; then
+            echo "Trivy found HIGH/CRITICAL vulnerabilities or Dockerfile misconfigurations."
+            echo "Image publishing is blocked."
+            exit 1
+          fi
+
+      - name: Upload Trivy reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: trivy-container-security-reports
+          path: trivy-reports/
+          if-no-files-found: warn
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Publish Docker image to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker push "$IMAGE_REF"
+          docker tag "$IMAGE_REF" "$IMAGE_LATEST"
+          docker push "$IMAGE_LATEST"

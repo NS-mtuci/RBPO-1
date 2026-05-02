@@ -2,12 +2,15 @@ workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: always
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: always
     - when: never
 
 stages:
   - security
   - build
   - test
+  - container
 
 secret-scan:
   stage: security
@@ -217,3 +220,84 @@ web_fuzzing:
     paths:
       - fuzzing-reports/
       - app-fuzzing.log
+
+container_image_trivy:
+  stage: container
+
+  image: docker:27.5.1
+
+  services:
+    - name: docker:27.5.1-dind
+      alias: docker
+      command: ["--tls=false"]
+
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+
+  dependencies:
+    - build-job
+
+  before_script:
+    - apk add --no-cache curl tar gzip
+    - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+    - trivy --version
+    - docker version
+
+  script:
+    - |
+      IMAGE_TAG="${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+      IMAGE_LATEST="${CI_REGISTRY_IMAGE}:latest"
+
+      echo "Using image tag: $IMAGE_TAG"
+
+      ls -la target
+      docker build -t "$IMAGE_TAG" .
+      docker save "$IMAGE_TAG" -o app-image.tar
+
+      mkdir -p trivy-reports
+
+      set +e
+
+      trivy config Dockerfile \
+        --exit-code 1 \
+        --severity HIGH,CRITICAL \
+        --format table \
+        --output trivy-reports/trivy-dockerfile.txt
+      CONFIG_STATUS=$?
+
+      trivy image \
+        --input app-image.tar \
+        --exit-code 1 \
+        --severity HIGH,CRITICAL \
+        --ignore-unfixed \
+        --format table \
+        --output trivy-reports/trivy-image.txt
+      IMAGE_STATUS=$?
+
+      set -e
+
+      cat trivy-reports/trivy-dockerfile.txt || true
+      cat trivy-reports/trivy-image.txt || true
+
+      if [ "$CONFIG_STATUS" -ne 0 ] || [ "$IMAGE_STATUS" -ne 0 ]; then
+        echo "Trivy found HIGH/CRITICAL vulnerabilities or Dockerfile misconfigurations."
+        echo "Image publishing is blocked."
+        exit 1
+      fi
+
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+        docker push "$IMAGE_TAG"
+        docker tag "$IMAGE_TAG" "$IMAGE_LATEST"
+        docker push "$IMAGE_LATEST"
+      else
+        echo "Merge request pipeline: scan passed, image publishing skipped."
+      fi
+
+  artifacts:
+    when: always
+    name: trivy-container-security-reports
+    paths:
+      - trivy-reports/
